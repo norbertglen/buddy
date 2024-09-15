@@ -1,0 +1,19 @@
+{
+  "name": "buddy",
+  "version": "1.0.0",
+  "description": "an ai assistant integrated into company workspaces to help user query information about the company and processes",
+  "main": "index.js",
+  "repository": "git@github.com:norbertglen/buddy.git",
+  "author": "Norbert Glen <norbertglen7@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "fs": "^0.0.1-security",
+    "langchain": "^0.3.2",
+    "openai": "^4.61.0"
+  }
+}
