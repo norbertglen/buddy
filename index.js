@@ -1,124 +1,118 @@
-require('dotenv').config();
+const env = require('dotenv');
 const fs = require('fs');
+const path = require('path');
 const readline = require('readline');
-const axios = require('axios');
+const { OpenAIEmbeddings, ChatOpenAI } = require('@langchain/openai');
+const { RecursiveCharacterTextSplitter } = require('langchain/text_splitter');
+const { MemoryVectorStore } = require('langchain/vectorstores/memory');
+const pdf = require("pdf-parse")
 
+env.config();
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
-async function getEmbedding(text) {
-  const response = await axios.post(
-    'https://api.openai.com/v1/embeddings',
-    { input: text, model: 'text-embedding-ada-002' },
-    {
-      headers: {
-        Authorization: `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
+async function extractTextFromPDF(filePath) {
+    try {
+        const dataBuffer = fs.readFileSync(filePath);
+        const data = await pdf(dataBuffer);
+        return data.text;
+    } catch (error) {
+        console.error(`Error reading PDF file ${filePath}:`, error);
+        return '';
     }
-  );
-  return response.data.data[0].embedding;
 }
 
-async function generateOpenAIResponse(userQuery, documentText) {
-  const response = await axios.post(
-    'https://api.openai.com/v1/chat/completions',
-    {
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: 'You are a helpful assistant.' },
-        {
-          role: 'user',
-          content: `Based on the following document, answer the question: "${userQuery}"\n\nDocument: ${documentText}`,
-        },
-      ],
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
+async function getEmbeddingsFromFiles(directoryPath) {
+    const files = fs.readdirSync(directoryPath);
+    const textSplitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 1000,
+        chunkOverlap: 200
+    });
+
+    let allDocuments = [];
+
+    for (const file of files) {
+        const filePath = path.join(directoryPath, file);
+        let content = '';
+
+        try {
+            if (path.extname(file) === '.pdf') {
+                // Handle PDF files
+                content = await extractTextFromPDF(filePath);
+            } else {
+                // Handle text files
+                content = fs.readFileSync(filePath, 'utf-8');
+            }
+
+            const document = { pageContent: content, metadata: { filename: file } };
+            const splits = await textSplitter.splitDocuments([document]);
+            allDocuments.push(...splits);
+        } catch (error) {
+            console.error(`Error processing file ${filePath}:`, error);
+        }
     }
-  );
-  return response.data.choices[0].message.content;
+
+    const vectorStore = await MemoryVectorStore.fromDocuments(allDocuments, new OpenAIEmbeddings());
+    return vectorStore.asRetriever({ k: 6, searchType: 'similarity' });
 }
 
-function cosineSimilarity(vecA, vecB) {
-  const dotProduct = vecA.reduce((acc, val, idx) => acc + val * vecB[idx], 0);
-  const magnitudeA = Math.sqrt(vecA.reduce((acc, val) => acc + val * val, 0));
-  const magnitudeB = Math.sqrt(vecB.reduce((acc, val) => acc + val * val, 0));
-  return dotProduct / (magnitudeA * magnitudeB);
-}
+async function generateAnswer(question, context) {
+    const llm = new ChatOpenAI({
+        apiKey: openaiApiKey,
+        temperature: 0.7,
+    });
 
-function readFilesFromFolder(folderPath) {
-  const files = fs.readdirSync(folderPath);
-  const fileContents = files.map((file) => {
-    const filePath = `${folderPath}/${file}`;
-    const content = fs.readFileSync(filePath, 'utf8');
-    return { filename: file, content };
-  });
-  return fileContents;
-}
+    const prompt = `You are a smart assistant helping answer user questions based on the context you are given.
+  Here is the context you are provided with:
+  \n ------- \n
+  ${context} 
+  \n ------- \n
+  Here is the user question: ${question}
+  If you cannot find the answer from the context above, just say you don't know.
+  `;
 
-async function createDocumentsFromFiles(fileContents) {
-  const documents = fileContents.map((file) => ({
-    id: file.filename,
-    text: file.content,
-  }));
-
-  const embeddings = await Promise.all(
-    documents.map(async (doc) => {
-      const embedding = await getEmbedding(doc.text);
-      return { doc, embedding };
-    })
-  );
-
-  return embeddings;
-}
-
-async function queryAssistant(userQuery, documentEmbeddings) {
-  const queryEmbedding = await getEmbedding(userQuery);
-
-  const similarities = documentEmbeddings.map(({ doc, embedding }) => {
-    const similarity = cosineSimilarity(queryEmbedding, embedding);
-    return { doc, similarity };
-  });
-
-  similarities.sort((a, b) => b.similarity - a.similarity);
-  const mostRelevantDoc = similarities[0].doc;
-
-  return await generateOpenAIResponse(userQuery, mostRelevantDoc.text);
+    try {
+        const response = await llm.invoke(prompt);
+        return response.text || 'No answer received.';
+    } catch (error) {
+        console.error('Error generating answer:', error);
+        return 'Sorry, there was an error generating the answer.';
+    }
 }
 
 const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-  prompt: 'Ask your question: ',
+    input: process.stdin,
+    output: process.stdout
 });
 
-const folderPath = './data'; 
-let documentEmbeddings = [];
+function askQuestion(prompt) {
+    return new Promise(resolve => rl.question(prompt, resolve));
+}
 
-(async () => {
-  console.log('Loading documents and creating embeddings...');
-  const fileContents = readFilesFromFolder(folderPath);
-  documentEmbeddings = await createDocumentsFromFiles(fileContents);
+async function startRAGSystem() {
+    const directoryPath = './data';
+    const retriever = await getEmbeddingsFromFiles(directoryPath);
 
-  console.log('Embeddings are ready! You can now start asking questions.');
-  rl.prompt();
-})();
+    let question = await askQuestion('Ask a question: ');
 
-rl.on('line', async (line) => {
-  const userQuery = line.trim();
+    while (question.toLowerCase() !== 'exit') {
+        try {
+            const result = await retriever.invoke(question);
+            if (result && result.length > 0) {
+                const context = result.map(doc => doc.pageContent).join('\n\n');  // Join contexts from multiple documents
+                const answer = await generateAnswer(question, context);
+                console.log(`Answer: ${answer}`);
+            } else {
+                console.log("Sorry, couldn't find relevant information.");
+            }
+        } catch (error) {
+            console.error('Error retrieving context:', error);
+            console.log("Sorry, couldn't retrieve context.");
+        }
 
-  if (userQuery) {
-    const response = await queryAssistant(userQuery, documentEmbeddings);
-    console.log(`Answer: ${response}`);
-  } else {
-    console.log('Please ask a question.');
-  }
+        question = await askQuestion('\nAsk another question or type "exit" to quit: ');
+    }
 
-  rl.prompt(); // Prompt the user to ask another question
-}).on('close', () => {
-  console.log('Goodbye!');
-  process.exit(0);
-});
+    rl.close();
+}
+
+startRAGSystem();
