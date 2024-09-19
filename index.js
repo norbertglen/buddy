@@ -21,37 +21,50 @@ async function extractTextFromPDF(filePath) {
     }
 }
 
-async function getEmbeddingsFromFiles(directoryPath) {
+async function readFilesRecursively(directoryPath) {
     const files = fs.readdirSync(directoryPath);
-    const textSplitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 1000,
-        chunkOverlap: 200
-    });
-
-    let allDocuments = [];
+    let documents = [];
 
     for (const file of files) {
         const filePath = path.join(directoryPath, file);
-        let content = '';
+        const stat = fs.statSync(filePath);
 
-        try {
-            if (path.extname(file) === '.pdf') {
-                // Handle PDF files
-                content = await extractTextFromPDF(filePath);
-            } else {
-                // Handle text files
-                content = fs.readFileSync(filePath, 'utf-8');
+        if (stat.isDirectory()) {
+            // Recursively read files from subdirectory
+            const nestedDocuments = await readFilesRecursively(filePath);
+            documents.push(...nestedDocuments);
+        } else {
+            let content = '';
+
+            try {
+                if (path.extname(file).toLowerCase() === '.pdf') {
+                    // Handle PDF files
+                    content = await extractTextFromPDF(filePath);
+                } else {
+                    // Handle text files
+                    content = fs.readFileSync(filePath, 'utf-8');
+                }
+
+                documents.push({ pageContent: content, metadata: { filename: file } });
+            } catch (error) {
+                console.error(`Error processing file ${filePath}:`, error);
             }
-
-            const document = { pageContent: content, metadata: { filename: file } };
-            const splits = await textSplitter.splitDocuments([document]);
-            allDocuments.push(...splits);
-        } catch (error) {
-            console.error(`Error processing file ${filePath}:`, error);
         }
     }
 
-    const vectorStore = await MemoryVectorStore.fromDocuments(allDocuments, new OpenAIEmbeddings());
+    return documents;
+}
+
+async function getEmbeddingsFromFiles(directoryPath) {
+    const documents = await readFilesRecursively(directoryPath);
+
+    const textSplitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 1000,
+        chunkOverlap: 200,
+    });
+
+    const splits = await textSplitter.splitDocuments(documents);
+    const vectorStore = await MemoryVectorStore.fromDocuments(splits, new OpenAIEmbeddings());
     return vectorStore.asRetriever({ k: 6, searchType: 'similarity' });
 }
 

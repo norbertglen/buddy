@@ -1,5 +1,5 @@
 Arguments: 
-  /Users/glen/.nvm/versions/node/v20.9.0/bin/node /usr/local/bin/yarn install
+  /Users/glen/.nvm/versions/node/v20.9.0/bin/node /usr/local/bin/yarn add langgraph
 
 PATH: 
   /Users/glen/.vscode/extensions/ms-python.python-2024.14.1-darwin-x64/python_files/deactivate/zsh:/Users/glen/apps/mystuff/llm/ai-school-llm-essentials-norbertglen/venv/bin:/Users/glen/.meteor:/Users/glen/.vscode/extensions/ms-python.python-2024.14.1-darwin-x64/python_files/deactivate/zsh:/Users/glen/apps/mystuff/llm/ai-school-llm-essentials-norbertglen/venv/bin:/Users/glen/.nvm/versions/node/v20.9.0/bin:/usr/local/bin:/usr/local/sbin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Applications/Postgres.app/Contents/Versions/latest/bin:/Users/glen/.vscode/extensions/ms-python.python-2024.14.1-darwin-x64/python_files/deactivate/zsh:/Users/glen/apps/mystuff/llm/ai-school-llm-essentials-norbertglen/venv/bin:/Users/glen/.meteor:/Users/glen/.nvm/versions/node/v20.9.0/bin
@@ -14,12 +14,17 @@ Platform:
   darwin x64
 
 Trace: 
-  SyntaxError: /Users/glen/apps/mystuff/llm/buddy/package.json: Expected double-quoted property name in JSON at position 587
-      at JSON.parse (<anonymous>)
-      at /usr/local/lib/node_modules/yarn/lib/cli.js:1629:59
-      at Generator.next (<anonymous>)
-      at step (/usr/local/lib/node_modules/yarn/lib/cli.js:310:30)
-      at /usr/local/lib/node_modules/yarn/lib/cli.js:321:13
+  Error: https://registry.yarnpkg.com/langgraph: Not found
+      at params.callback [as _callback] (/usr/local/lib/node_modules/yarn/lib/cli.js:66145:18)
+      at self.callback (/usr/local/lib/node_modules/yarn/lib/cli.js:140890:22)
+      at Request.emit (node:events:514:28)
+      at Request.<anonymous> (/usr/local/lib/node_modules/yarn/lib/cli.js:141862:10)
+      at Request.emit (node:events:514:28)
+      at IncomingMessage.<anonymous> (/usr/local/lib/node_modules/yarn/lib/cli.js:141784:12)
+      at Object.onceWrapper (node:events:628:28)
+      at IncomingMessage.emit (node:events:526:35)
+      at endReadableNT (node:internal/streams/readable:1408:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
 
 npm manifest: 
   {
@@ -39,7 +44,7 @@ npm manifest:
       "@langchain/openai": "^0.2.6",
       "dotenv": "^16.4.5",
       "langchain": "^0.2.16",
-      "pdf-parse": "^1.1.1",
+      "pdf-parse": "^1.1.1"
     }
   }
 
@@ -553,11 +558,6 @@ Lockfile:
     version "0.0.3"
     resolved "https://registry.yarnpkg.com/tr46/-/tr46-0.0.3.tgz#8184fd347dac9cdc185992f3a6622e14b9d9ab6a"
     integrity sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==
-  
-  typescript@^5.5.4:
-    version "5.6.2"
-    resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.6.2.tgz#d1de67b6bef77c41823f822df8f0b3bcff60a5a0"
-    integrity sha512-NW8ByodCSNCwZeghjN3o+JX5OFH0Ojg6sadjEKY4huZ52TqbJTJnDo5+Tw98lSy63NZvi4n+ez5m2u5d4PkZyw==
   
   undici-types@~5.26.4:
     version "5.26.5"
